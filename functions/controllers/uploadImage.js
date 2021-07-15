@@ -4,13 +4,15 @@ const os = require('os');
 const fs = require('fs');
 const Busboy = require('busboy');
 const { v4: uuidv4 } = require('uuid');
-exports.uploadImage =(req, res)=>{
-    let imageFileName
+exports.uploadImage =(req, res, next)=>{
+    let imageFileName, error
     let imageToBeUploaded = {}
     const busboy = new Busboy({headers: req.headers});
     busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
         if (mimetype !== "image/jpeg" && mimetype !== "image/png") {
-          return res.status(400).json({ error: "Wrong file type submitted" });
+            error = new Error('Wrong file type submitted')
+            error.statusCode = 400
+            throw error
         }
         const imageExtension = filename.split('.')[filename.split(".").length - 1]
         imageFileName = `${uuidv4()}.${imageExtension}`
@@ -33,8 +35,11 @@ exports.uploadImage =(req, res)=>{
         }).then(()=>{
             return res.status(200).json({message:'image uploaded sucessfully'})
         })
-        .catch(error=>{
-            return res.status(500).json({error: error.code })
+        .catch(err=>{
+            if(!err.statusCode){
+                err.statusCode=500
+            }
+            next(err)
         })
     })
     busboy.end(req.rawBody)

@@ -1,6 +1,7 @@
 const {firebase, firebaseConfig, db} = require('../util/firebase')
 
-exports.comment=(req,res)=>{
+exports.comment=(req,res, next)=>{
+    let error
     const newComment = {
         body: req.body.body,
         screamId: req.params.screamId,
@@ -8,18 +9,22 @@ exports.comment=(req,res)=>{
         userHandle : req.user.handle,
         avatar: req.user.avatar
     }
-    db.doc(`/screams/${req.params.screamId}`).get()
+    return db.doc(`/screams/${req.params.screamId}`).get()
     .then(doc=>{
         if(!doc.exists){
-            return res.status(404).json({error: 'scream not found'})
+            error = new Error('scream not found')
+            error.statusCode = 404
+            throw error
         }
         return doc.ref.update({commentCount: doc.data().commentCount + 1 })
     }).then(()=>{
         return db.collection('comments').add(newComment)
     }).then(()=>{
         return res.status(201).json({newComment})
-    }).catch(error=>{
-        console.log(error)
-        res.status(500).json({error: 'something went wrong'})
+    }).catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
     })
 }

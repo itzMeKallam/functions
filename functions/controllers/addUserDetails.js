@@ -1,12 +1,14 @@
 const {firebase, firebaseConfig, db} = require('../util/firebase')
 
-exports.addUserDetails=(req,res)=>{
-    db.doc(`/users/${req.user.handle}`).update(req.userDetails).then(()=>{
-        return res.json({message: 'Details added successfully'})
+exports.addUserDetails=(req,res, next)=>{
+    return db.doc(`/users/${req.user.handle}`).update(req.userDetails).then(()=>{
+        return res.status(200).json({message: 'Details added successfully'})
     })
-    .catch(error=>{
-        console.error(error)
-        return res.status(500).json({error: error.code})
+    .catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
     })
 
 }

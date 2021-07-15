@@ -1,18 +1,26 @@
 const {db} = require('../util/firebase')
 
-exports.deleteScream =(req, res)=>{
+exports.deleteScream =(req, res,next)=>{
+    let error
     const document = db.doc(`/screams/${req.params.screamId}`)
-    document.get().then((doc)=>{
+    return document.get().then((doc)=>{
         if(!doc.exists){
-            res.status(404).json({error: 'document wasnt found'})
+            error = new Error('document was not found')
+            error.statusCode = 404
+            throw error
         }
         if(doc.data().userHandle !== req.user.handle){
-            return res.status(403).json({error: "unauthoraised"})
+            error = new Error('unauthoraised')
+            error.statusCode = 403
+            throw error
         }
-        document.delete()
+        return document.delete()
     }).then(()=>{
-        res.status(202).json({message: 'scream deleted sucessfully'})
-    }).catch(error=>{
-        res.status(500).json({error: error.code})
-    })
+        return res.status(202).json({message: 'scream deleted sucessfully'})
+    }).catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
+        })
 }

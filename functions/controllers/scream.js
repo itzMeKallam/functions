@@ -1,5 +1,5 @@
 const {db} = require('../util/firebase')
-exports.scream =(req, res)=>{
+exports.scream =(req, res, next)=>{
 
     const newScream = {
         body: req.body.body,
@@ -13,9 +13,11 @@ exports.scream =(req, res)=>{
     .then(data=>{
         const resScream = newScream
         resScream.screamId = data.id
-        return res.json({resScream})
-    }).catch(error=> {
-        res.status(500).json({error: 'something went wrong'})
-        console.error(error)
-    })
+        return res.status(201).json({resScream})
+    }).catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
+        })
 }

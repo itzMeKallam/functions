@@ -1,30 +1,36 @@
 const {db} = require('../util/firebase')
 
-exports.getUnlike =(req, res)=>{
+exports.getUnlike =(req, res, next)=>{
 const likeDocument = db.collection('likes').where("userHandle", "==", req.user.handle)
     .where("screamId", "==", req.params.screamId).limit(1)
     const screamDocument = db.doc(`/screams/${req.params.screamId}`)
-    let screamData
+    let screamData, error
     screamDocument.get().then(doc=>{
-        if(doc.exists){
-            screamData = doc.data()
-            screamData.screamId = doc.id
-            return likeDocument.get()
+        if(!doc.exists){
+            error = new Error('scream not found')
+            error.statusCode = 404
+            throw error
         }
-        return res.status(404).json({error: 'scream not found'})
+        screamData = doc.data()
+        screamData.screamId = doc.id
+        return likeDocument.get()
     }).then(data=>{
         if(data.empty){
-            return res.status(400).json({error: 'scream already liked'})
+            error = new Error('scream was not exist')
+            error.statusCode = 400
+            throw error
         }
         return db.doc(`/likes/${data.docs[0].id}`).delete()
 
     }).then(()=>{
-                screamData.likeCount--
-                return screamDocument.update({likeCount: screamData.likeCount})
-            }).then(()=>{
-                return res.status(201).json(screamData)
-            }).catch(error=>{
-        console.error(error.code)
-        return res.status(500).json({error: error.code})
+        screamData.likeCount--
+        return screamDocument.update({likeCount: screamData.likeCount})
+    }).then(()=>{
+        return res.status(201).json(screamData)
+    }).catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
     })
 }

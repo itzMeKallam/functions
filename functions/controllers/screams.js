@@ -1,5 +1,5 @@
 const {db} = require('../util/firebase')
-exports.screams =(req,res)=>{
+exports.screams =(req,res,next)=>{
     db.collection('screams').orderBy('createdAt','desc').get()
     .then(data=>{
         let screams = []
@@ -11,9 +11,11 @@ exports.screams =(req,res)=>{
                 createdAt: doc.data().createdAt
             })
         })
-        return res.json(screams)
-    }).catch(error=> {
-        res.status(500).json({error: 'something went wrong'})
-        console.error(error)
-    })
+        return res.status(200).json(screams)
+    }).catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
+        })
 }

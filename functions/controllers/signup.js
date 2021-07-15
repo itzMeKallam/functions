@@ -1,7 +1,8 @@
 const {firebase, firebaseConfig, db} = require('../util/firebase')
 let token, userId;
 
-exports.signup =(req, res)=>{
+exports.signup =(req, res, next)=>{
+    let error
     const newUser = {
         email: req.body.email,
         password: req.body.password,
@@ -10,7 +11,9 @@ exports.signup =(req, res)=>{
     db.doc(`/users/${newUser.handle}`).get()
     .then(doc=>{
         if(doc.exists){
-            return res.status(400).json({handle: 'this handle is already taken'})
+            error = new Error('this handle is already taken')
+            error.statusCode = 400
+            throw error
         }
         return firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password)
     })
@@ -33,10 +36,13 @@ exports.signup =(req, res)=>{
     }).then(data=>{
         return res.status(201).json({token})
     })
-    .catch(error=>{
-        if(error.code === 'auth/email-already-in-use'){
-            return res.status(400).json({email: 'Email is already in use'})
+    .catch(err=>{
+        if(err.code === 'auth/email-already-in-use'){
+            err.statusCode = 400
+            err.message = 'Email is already in use'
+            next(err)
         }
-        return res.status(500).json({error: error.code})
+        err.statusCode = 500
+        next(err)
     })
 }

@@ -1,12 +1,13 @@
 const {db} = require('../util/firebase')
-exports.getScream =(req, res)=>{
+exports.getScream =(req, res,next)=>{
+    let error
     let screamData ={}
-    // console.log(req.params.screamId)
-    db.doc(`/screams/${req.params.screamId}`).get()
+    return db.doc(`/screams/${req.params.screamId}`).get()
     .then(doc=>{
-    // res.status(200).json({param: req.params.screamId})
         if(!doc.exists){
-            return res.status(404).json({error: 'Scream not found'})
+            error = new Error('scream not found')
+            error.statusCode = 404
+            throw error
         }
 
         screamData = doc.data()
@@ -17,10 +18,12 @@ exports.getScream =(req, res)=>{
         data.forEach(doc=>{
             screamData.comments.push(doc.data())
         })
-        res.status(200).json(screamData)
+        return res.status(200).json(screamData)
     })
-    .catch(error=>{
-        console.error(error)
-        res.status(500).json({message: error.code})
-    })
+    .catch(err=>{
+        if(!err.statusCode){
+            err.statusCode=500
+        }
+        next(err)
+        })
 }

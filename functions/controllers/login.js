@@ -1,6 +1,6 @@
 const {firebase} = require('../util/firebase')
 
-exports.login =(req, res)=>{
+exports.login =(req, res,next)=>{
     email = req.body.email
     password = req.body.password
     firebase.auth().signInWithEmailAndPassword(email, password)
@@ -8,15 +8,19 @@ exports.login =(req, res)=>{
         return data.user.getIdToken()
     }).then(token=>{
         return res.status(200).json({token})
-    }).catch(error=>{
-        console.error(error)
-        if(error.code === 'auth/wrong-password'){
-            return res.status(400).json({password: 'Invalid password'})
+    }).catch(err=>{
+        if(err.code === 'auth/wrong-password'){
+            err.statusCode = 400
+            err.message = 'Invalid password'
+            next(err)
         }
 
-        if(error.code === 'auth/user-not-found'){
-            return res.status(400).json({email: 'User not found'})
+        if(err.code === 'auth/user-not-found'){
+            err.statusCode = 400
+            err.message = 'User not found'
+            next(err)
         }
-        return res.status(500).json({error: error.code})
+        err.statusCode = 500
+        next(err)
     })
 }

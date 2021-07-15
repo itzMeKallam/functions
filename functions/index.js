@@ -36,6 +36,14 @@ app.get('/check',(req,res)=>{
     console.error('wasted')
     res.status(200).json({message: 'wasted'})
 })
+app.use((error, req, res, next)=>{
+    console.log(error)
+    const statusCode = error.statusCode || 500
+    const message = error.message
+    res.status(statusCode).json({
+        message: message
+    })
+})
 
 exports.api = functions.region('asia-south1').https.onRequest(app)
 
