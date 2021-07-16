@@ -6,9 +6,7 @@ exports.screams =(req,res,next)=>{
         data.forEach(doc=>{
             screams.push({
                 screamId: doc.id,
-                body: doc.data().body,
-                userHandle: doc.data().userHandle,
-                createdAt: doc.data().createdAt
+                ...doc.data()
             })
         })
         return res.status(200).json(screams)

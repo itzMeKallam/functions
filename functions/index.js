@@ -16,6 +16,9 @@ const comment = require('./routes/comment')
 const getLike = require('./routes/getLike')
 const getUnlike = require('./routes/getUnlike')
 const deleteScream = require('./routes/deleteScream')
+const markNotificationsRead = require('./routes/markNotificationsRead')
+const getUserDetail = require('./routes/getUserDetail')
+
 const app = express()
 // screams
 app.use('/scream', scream)
@@ -32,6 +35,8 @@ app.use('/login', login)
 app.use('/user', addUserDetails) 
 app.use('/user', getUserDetails)
 app.use('/user/image', uploadImage)
+app.use('/user/', getUserDetail)
+app.use('/notifications', markNotificationsRead)
 app.get('/check',(req,res)=>{
     console.error('wasted')
     res.status(200).json({message: 'wasted'})
@@ -40,8 +45,13 @@ app.use((error, req, res, next)=>{
     console.log(error)
     const statusCode = error.statusCode || 500
     const message = error.message
+    if(statusCode === 500) {
+        message = 'something went wrong, please try again'
+    } 
+    const code = error.code
     res.status(statusCode).json({
-        message: message
+        message,
+        code
     })
 })
 
@@ -55,7 +65,7 @@ exports.createNotificationOnLike = functions
       .doc(`/screams/${snapshot.data().screamId}`)
       .get()
       .then((doc) => {
-        if (doc.exists) {
+        if (doc.exists && doc.data.userHandle !== snapshot.data.userHandle) {
           return db.doc(`/notifications/${snapshot.id}`).set({
             createdAt: new Date().toISOString(),
             recipient: doc.data().userHandle,
@@ -77,7 +87,7 @@ exports.deleteNotificationOnUnlike = functions.region('asia-south1').firestore.d
 })
 
 exports.createNotificationOnComment = functions
-  .region('europe-west1')
+  .region('asia-south1')
   .firestore.document('comments/{id}')
   .onCreate((snapshot) => {
     return db
@@ -85,7 +95,7 @@ exports.createNotificationOnComment = functions
       .get()
       .then((doc) => {
         if (
-          doc.exists
+          doc.exists  && doc.data.userHandle !== snapshot.data.userHandle
         ) {
           return db.doc(`/notifications/${snapshot.id}`).set({
             createdAt: new Date().toISOString(),
@@ -101,4 +111,60 @@ exports.createNotificationOnComment = functions
         console.error(err);
         return;
       });
+  });
+
+  exports.onUserImageChange = functions.region('asia-south1').firestore.document('/users/{userId}')
+  .onUpdate(change=>{
+      console.log(change.before.data())
+      console.log(change.after.data())
+      if(change.before.data().avatar !== change.after.data().avatar){
+            let batch = db.batch()
+            return db.collection('/screams/').where('userHandle', '==' , change.before.data().handle).get()
+            .then(data=>{
+                data.forEach(doc=>{
+                    const scream = db.doc(`/screams/${doc.id}`)
+                    batch.update(scream, {avatar: change.after.data().avatar})
+                })
+                return batch.commit()
+            })
+      }
+      return
+
+  })
+
+  exports.onScreamDelete = functions
+  .region('asia-south1')
+  .firestore.document('/screams/{screamId}')
+  .onDelete((snapshot, context) => {
+    const screamId = context.params.screamId;
+    const batch = db.batch();
+    return db
+      .collection('comments')
+      .where('screamId', '==', screamId)
+      .get()
+      .then((data) => {
+        data.forEach((doc) => {
+          batch.delete(db.doc(`/comments/${doc.id}`));
+        });
+        return db
+          .collection('likes')
+          .where('screamId', '==', screamId)
+          .get();
+      })
+      .then((data) => {
+        data.forEach((doc) => {
+          batch.delete(db.doc(`/likes/${doc.id}`));
+        });
+        return db
+          .collection('notifications')
+          .where('screamId', '==', screamId)
+          .get();
+      })
+      .then((data) => {
+        data.forEach((doc) => {
+          batch.delete(db.doc(`/notifications/${doc.id}`));
+        });
+        return batch.commit();
+      })
+      .catch((err) => console.error(err));
   });

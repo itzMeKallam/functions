@@ -2,6 +2,11 @@ const {firebase, firebaseConfig, db} = require('../util/firebase')
 
 exports.comment=(req,res, next)=>{
     let error
+    if(req.body.body.trim()=== ''){
+        error = new Error('Comment must not be empty')
+        error.statusCode = 400
+        throw error
+    }
     const newComment = {
         body: req.body.body,
         screamId: req.params.screamId,
